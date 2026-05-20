@@ -101,6 +101,9 @@ body { font-family: 'Meiryo', 'Yu Gothic', sans-serif; font-size: 13px; backgrou
   width: 100%; padding: 6px; border: 1px solid #ccc; border-radius: 4px;
   font-size: 13px; resize: vertical; min-height: 50px; font-family: inherit;
 }
+#allday-row { margin: 4px 0 10px; }
+.allday-label { display:flex; align-items:center; gap:7px; font-size:12px; color:#444; cursor:pointer; user-select:none; }
+#modal-allday { width:15px; height:15px; cursor:pointer; accent-color:#27ae60; }
 .modal-footer { display: flex; gap: 8px; margin-top: 14px; justify-content: flex-end; }
 .btn-save { background: #27ae60; color: white; border: none; padding: 8px 18px; border-radius: 5px; cursor: pointer; font-size: 13px; }
 .btn-save:hover { background: #219a52; }
@@ -239,6 +242,11 @@ body { font-family: 'Meiryo', 'Yu Gothic', sans-serif; font-size: 13px; backgrou
   <div id="modal">
     <h3 id="modal-title"></h3>
     <div id="modal-sub"></div>
+    <div id="allday-row">
+      <label class="allday-label">
+        <input type="checkbox" id="modal-allday"> 終日（AM・PM 両方に適用）
+      </label>
+    </div>
     <div class="status-grid" id="modal-buttons"></div>
     <div class="note-section">
       <label>📍 場所・メモ（出張先、勤務場所など）</label>
@@ -888,18 +896,27 @@ function loadWeekData() {
   });
 }
 
-// 月ビュー: リアルタイム不要なので once で一括取得
+// 月ビュー: 初回は全日付が揃ってから1回描画、以降はリアルタイム更新
 function loadMonthData() {
   unsubscribers.forEach(fn => fn()); unsubscribers = []; weekData = {};
   const dates = getMonthDates(currentMonthYear, currentMonthIndex);
-  let remaining = dates.length;
-  if (remaining === 0) { renderCalendar(); return; }
+  if (dates.length === 0) { renderCalendar(); return; }
+  let initialCount = 0;
+  const total = dates.length;
   dates.forEach(d => {
     const dk = dateKey(d);
-    db.ref(`schedules/${dk}`).once('value', snap => {
+    const ref = db.ref(`schedules/${dk}`);
+    let initialized = false;
+    const unsub = ref.on('value', snap => {
       weekData[dk] = snap.val() || {};
-      if (--remaining === 0) renderCalendar();
+      if (!initialized) {
+        initialized = true;
+        if (++initialCount === total) renderCalendar();
+      } else {
+        renderCalendar();
+      }
     });
+    unsubscribers.push(() => ref.off('value', unsub));
   });
 }
 
@@ -1178,6 +1195,13 @@ function openModal(date, dk, slot, name, curLabel, curNote, isDefOrEmpty) {
   });
 
   document.getElementById('modal-note').value = curNote;
+
+  // 両スロットが同じ明示ラベルなら終日を初期チェック
+  const otherSlot = slot === 'AM' ? 'PM' : 'AM';
+  const otherLabel = weekData[dk]?.[name]?.[otherSlot]?.label;
+  document.getElementById('modal-allday').checked =
+    !isDefOrEmpty && !!curLabel && otherLabel === curLabel;
+
   modalState = { dk, slot, name };
   document.getElementById('modal-overlay').classList.add('show');
 }
@@ -1188,14 +1212,28 @@ function saveModal() {
   const sel = document.querySelector('.status-btn.selected');
   if (!sel) { alert('状態を選択してください'); return; }
   const { dk, slot, name } = modalState;
-  saveEntry(name, dk, slot, sel.textContent, document.getElementById('modal-note').value.trim());
+  const label = sel.textContent;
+  const note  = document.getElementById('modal-note').value.trim();
+  const allday = document.getElementById('modal-allday').checked;
+  if (allday) {
+    saveEntry(name, dk, 'AM', label, note);
+    saveEntry(name, dk, 'PM', label, note);
+  } else {
+    saveEntry(name, dk, slot, label, note);
+  }
   closeModal();
 }
 
 function clearModal() {
   if (!modalState) return;
   const { dk, slot, name } = modalState;
-  clearEntry(name, dk, slot);
+  const allday = document.getElementById('modal-allday').checked;
+  if (allday) {
+    clearEntry(name, dk, 'AM');
+    clearEntry(name, dk, 'PM');
+  } else {
+    clearEntry(name, dk, slot);
+  }
   closeModal();
 }
 

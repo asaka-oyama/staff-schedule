@@ -332,10 +332,10 @@ const DEFAULT_STAFF = [
 ];
 
 const STATUS_OPTIONS = [
-  { label:'出勤（検査可）',     color:'#C6EFCE', short:'○出勤', insp:'○' },
-  { label:'出勤（検査外）',     color:'#8EB89B', short:'●出勤', insp:'×' },
-  { label:'テレワーク（可）',   color:'#FFFF99', short:'○TW',   insp:'△' },
-  { label:'テレワーク（不可）', color:'#FFD966', short:'×TW',   insp:'×' },
+  { label:'出勤（検査対応可）',     color:'#C6EFCE', short:'○出勤', insp:'○' },
+  { label:'出勤（検査対応不可）',   color:'#8EB89B', short:'●出勤', insp:'×' },
+  { label:'テレワーク（検査対応可）',   color:'#FFFF99', short:'○TW',   insp:'△' },
+  { label:'テレワーク（検査対応不可）', color:'#FFD966', short:'×TW',   insp:'×' },
   { label:'出張',               color:'#FFC7CE', short:'出張',  insp:'×' },
   { label:'休暇・有休',         color:'#FFB3B3', short:'休暇',  insp:'−' },
   { label:'副業',               color:'#FF6666', short:'副業',  insp:'×' },
@@ -466,7 +466,7 @@ function getEffectiveEntry(dk, name, slot, d) {
   if (getHolidayName(d)) return null;
   const sc = staffConfig.find(s => s.name === name);
   if (sc && isWorkingSlot(sc, d.getDay(), slot))
-    return { label: '出勤（検査可）', note: '', isDefault: true };
+    return { label: '出勤（検査対応可）', note: '', isDefault: true };
   return null;
 }
 
@@ -786,7 +786,7 @@ function buildLegend() {
 function openModal(date, dk, slot, name, curLabel, curNote, isDefOrEmpty) {
   document.getElementById('modal-title').textContent = `${name} / ${fmt(date)}(${WEEKDAY_JP[date.getDay()]}) ${slot}`;
   const sub = document.getElementById('modal-sub');
-  if (isDefOrEmpty && curLabel === '出勤（検査可）') sub.textContent = '現在: デフォルト（出勤・検査可）― 変更する場合は選択してください';
+  if (isDefOrEmpty && curLabel === '出勤（検査対応可）') sub.textContent = '現在: デフォルト（出勤・検査対応可）― 変更する場合は選択してください';
   else if (!curLabel) sub.textContent = '非勤務日 ― 上書きする場合は選択してください';
   else sub.textContent = '';
 
